@@ -7,7 +7,7 @@
   "siteType": "ads",
   "geo": "us",
   "language": "en",
-  "minArticles": 200,
+  "minArticles": 500,
   "competitors": [
     "goatjournal.iamcountryside.com",
     "thriftyhomesteader.com",
@@ -16,6 +16,14 @@
     "goatsauthority.com"
   ],
   "excludedTopics": [],
+  "extraSeedKeywords": [
+    "goat cheese",
+    "goat milk recipes",
+    "meat goats",
+    "fiber goats",
+    "dairy goats",
+    "goat soap"
+  ],
   "brandPositioning": "Trustworthy, practical goat-care advice anyone can follow — clear, friendly, and beginner-welcoming, written by people who actually keep goats.",
   "contentStyle": "Plain-English, skimmable blog posts the average person can read — step-by-step, example-driven, and free of jargon."
 }

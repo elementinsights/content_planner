@@ -36,18 +36,25 @@ export async function refineClustersWithLLM(
   }
 
   const volByKw = new Map(records.map((r) => [r.keyword, r.metrics.searchVolume ?? 0]));
+  const recByKw = new Map(records.map((r) => [r.keyword, r]));
+  // Valid top-level categories — the LLM must pick one verbatim; map back to slug/name.
+  const catSlugByName = new Map(intake.initialCategories.map((c) => [normalizeForMatch(c.name), c.slug]));
+  const catNameByNorm = new Map(intake.initialCategories.map((c) => [normalizeForMatch(c.name), c.name]));
+  const categoryNames = intake.initialCategories.map((c) => c.name);
   // Only worth refining real clusters; singletons keep their mechanical label.
   const targets = clustering.clusters.filter((c) => c.memberKeywords.length >= 2);
 
   const system =
     `You are an SEO content architect for a website about "${intake.interpretedNiche}".\n` +
+    `The site's top-level categories are: ${categoryNames.join(' | ')}.\n` +
     `Each item is a CLUSTER of keywords that share Google search intent — it becomes ONE hub page plus supporting pages.\n` +
     `For EACH cluster decide:\n` +
     `- "name": a concise, human hub-page topic name (Title Case, no leading "the/a", <= 6 words).\n` +
     `- "pillar": the SINGLE best umbrella/main-page keyword — the broadest, highest-value head term the others support. It need NOT be the highest volume if a better umbrella exists. It MUST be copied verbatim from that cluster's keyword list.\n` +
-    `Return ONLY JSON: {"clusters":[{"id":<id>,"name":"...","pillar":"<verbatim keyword>"}]} with one object per id provided.`;
+    `- "category": the single best-fit top-level category for this cluster, copied VERBATIM from the category list above.\n` +
+    `Return ONLY JSON: {"clusters":[{"id":<id>,"name":"...","pillar":"<verbatim keyword>","category":"<verbatim category>"}]} with one object per id provided.`;
 
-  let batches = 0, failures = 0, renamed = 0, repillared = 0, pillarRejected = 0;
+  let batches = 0, failures = 0, renamed = 0, repillared = 0, pillarRejected = 0, recategorized = 0;
 
   for (let i = 0; i < targets.length; i += BATCH) {
     const chunk = targets.slice(i, i + BATCH);
@@ -60,7 +67,7 @@ export async function refineClustersWithLLM(
     }));
     try {
       const raw = (await callLlmJson({ ...creds, system, user: JSON.stringify(payload), cost })) as {
-        clusters?: Array<{ id: number; name?: string; pillar?: string }>;
+        clusters?: Array<{ id: number; name?: string; pillar?: string; category?: string }>;
       };
       const byId = new Map((raw.clusters ?? []).map((c) => [c.id, c]));
       for (let idx = 0; idx < chunk.length; idx++) {
@@ -93,6 +100,22 @@ export async function refineClustersWithLLM(
             pillarRejected++;
           }
         }
+
+        // Category: assign the whole cluster (and its member keywords) to the
+        // LLM-chosen top-level category — fixes the "everything in category #1" bug.
+        if (typeof dec.category === 'string' && dec.category.trim()) {
+          const norm = normalizeForMatch(dec.category);
+          const slug = catSlugByName.get(norm);
+          const name = catNameByNorm.get(norm);
+          if (slug && name) {
+            cl.category = name;
+            for (const k of cl.memberKeywords) {
+              const rec = recByKw.get(k);
+              if (rec) rec.category = slug;
+            }
+            recategorized++;
+          }
+        }
       }
       batches++;
     } catch (err) {
@@ -103,5 +126,5 @@ export async function refineClustersWithLLM(
     }
   }
 
-  log.info('cluster refinement (LLM)', { clusters: targets.length, renamed, repillared, pillarRejected, batches, failures });
+  log.info('cluster refinement (LLM)', { clusters: targets.length, renamed, repillared, pillarRejected, recategorized, batches, failures });
 }

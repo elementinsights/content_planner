@@ -27,6 +27,15 @@ const INTERNAL_LINK_IMPORTANCE: Record<PageType, number> = {
   glossary: 0.7, faq: 0.45, comparison: 0.6, commercial: 0.65, tool: 0.6, template: 0.55,
   checklist: 0.5, 'case-study': 0.45, support: 0.6,
 };
+// Click-resilience: how likely a searcher still CLICKS through vs. getting the
+// answer from an AI Overview / featured snippet. Tools, comparisons, and buying
+// guides keep their clicks; bare definitions / simple "what is X" lose them.
+// Drives publishing priority so effort goes to pages that actually earn visits.
+const CLICK_RESILIENCE: Record<PageType, number> = {
+  pillar: 0.6, 'category-hub': 0.6, 'sub-hub': 0.55, spoke: 0.5, 'longtail-question': 0.25,
+  glossary: 0.2, faq: 0.3, comparison: 0.9, commercial: 0.95, tool: 1, template: 0.9,
+  checklist: 0.85, 'case-study': 0.8, support: 0.4,
+};
 
 export interface ScoreInputs {
   pageType: PageType;
@@ -61,6 +70,7 @@ export function computeScores(sub: SubscoreResult, inp: ScoreInputs): Scores {
       clusterImportance: inp.clusterImportance,
       internalLinkValue: inp.internalLinkValue,
       promotionValue: sub.promotionPotential,
+      clickResilience: CLICK_RESILIENCE[inp.pageType],
     },
     w.priority,
   );

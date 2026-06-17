@@ -53,6 +53,7 @@ function loadInput(flags: Record<string, string | boolean>): PlanInput {
   if (typeof flags.maxArticles === 'string') raw.maxArticles = Number(flags.maxArticles);
   if (typeof flags.competitors === 'string') raw.competitors = (flags.competitors as string).split(',').map((s) => s.trim());
   if (typeof flags.excludedTopics === 'string') raw.excludedTopics = (flags.excludedTopics as string).split(',').map((s) => s.trim());
+  if (typeof flags.extraSeedKeywords === 'string') raw.extraSeedKeywords = (flags.extraSeedKeywords as string).split(',').map((s) => s.trim());
   return parsePlanInput(raw);
 }
 

@@ -308,7 +308,8 @@ export function finalizeIntake(
     audienceAssumptions: creative.audienceAssumptions,
     monetizationAssumptions: creative.monetizationAssumptions,
     seedTopics: creative.seedTopics,
-    seedKeywords: creative.seedKeywords,
+    // User-supplied seeds first so they're never crowded out of discovery.
+    seedKeywords: uniq([...(input.extraSeedKeywords ?? []), ...creative.seedKeywords]),
     competitorDomains: creative.competitorDomains,
     excludedTopics: input.excludedTopics ?? [],
     geo: input.geo ?? cfg.geoDefault,

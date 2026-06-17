@@ -43,8 +43,77 @@ function sections(pageType: PageType, kw: string): string[] {
   return ['Introduction (answer-first)', ...base, 'Key takeaways', 'Related resources (internal links)', 'FAQ'];
 }
 
+function wordCountTarget(pageType: PageType): string {
+  switch (pageType) {
+    case 'pillar': return '2,000–3,500 words (comprehensive hub)';
+    case 'category-hub':
+    case 'sub-hub': return '1,500–2,500 words';
+    case 'comparison':
+    case 'commercial': return '1,200–2,200 words';
+    case 'tool':
+    case 'template':
+    case 'checklist': return '600–1,200 words + the interactive/downloadable asset';
+    case 'glossary': return '500–900 words';
+    case 'faq': return '700–1,200 words';
+    case 'case-study': return '1,200–2,000 words';
+    default: return '900–1,600 words';
+  }
+}
+
+function mediaNeeds(pageType: PageType): string[] {
+  switch (pageType) {
+    case 'comparison': return ['At-a-glance comparison table', 'Pros/cons callouts', 'Decision flowchart'];
+    case 'commercial': return ['Option comparison table', 'Photo of each option', 'Pros/cons boxes'];
+    case 'tool':
+    case 'template':
+    case 'checklist': return ['The interactive tool / downloadable file', 'Example output or screenshot'];
+    case 'glossary':
+    case 'faq': return ['Quick-answer box up top', 'Simple diagram if it aids understanding'];
+    case 'pillar':
+    case 'category-hub':
+    case 'sub-hub': return ['Topic-map / hero diagram', 'Linked subtopic cards', 'Summary table'];
+    case 'case-study': return ['Before/after data chart', 'Process timeline', 'Photos'];
+    default: return ['Step-by-step photos or a short video', 'Annotated diagram', 'Key-takeaways box'];
+  }
+}
+
+function schemaType(pageType: PageType): string {
+  switch (pageType) {
+    case 'faq': return 'FAQPage + Breadcrumb';
+    case 'comparison':
+    case 'commercial': return 'ItemList + Review/Product (where applicable) + Breadcrumb';
+    case 'glossary': return 'DefinedTerm / Article + Breadcrumb';
+    case 'tool':
+    case 'template':
+    case 'checklist': return 'HowTo / WebApplication + Breadcrumb';
+    case 'longtail-question': return 'Article + FAQPage + Breadcrumb';
+    default: return 'Article + HowTo (if step-based) + Breadcrumb';
+  }
+}
+
+function eeatNote(isYmyl: boolean): string {
+  return isYmyl
+    ? 'YMYL / sensitive topic: cite a qualified expert or primary/authoritative source for any health, safety, financial, or legal claim; name the author + their hands-on experience; date-stamp the page. Accuracy beats completeness.'
+    : 'Show first-hand experience: real photos, specifics from actually doing it, a named author with credentials, and 1–2 reputable citations.';
+}
+
+function conversionGoal(pageType: PageType): string {
+  switch (pageType) {
+    case 'comparison':
+    case 'commercial': return 'Affiliate click on recommended gear + email capture';
+    case 'tool':
+    case 'template':
+    case 'checklist': return 'Email signup to download/save the asset';
+    case 'pillar':
+    case 'category-hub':
+    case 'sub-hub': return 'Newsletter signup + route readers deeper (dwell → ad revenue)';
+    default: return 'Newsletter signup + maximize on-page dwell for ad revenue';
+  }
+}
+
 export function buildBriefs(pages: PlannedPage[], intake: IntakeResult): Brief[] {
   const targetReader = intake.audienceAssumptions[0] ?? `${intake.interpretedNiche} searchers`;
+  const isYmyl = intake.ymylRiskFlags.length > 0;
   return pages.map((p) => {
     const serpSummary = p.topCompetingUrls.length
       ? `Top competing URLs: ${p.topCompetingUrls.slice(0, 3).join(', ')}. SERP features: ${p.serpFeatureSummary}.`
@@ -80,6 +149,11 @@ export function buildBriefs(pages: PlannedPage[], intake: IntakeResult): Brief[]
       cannibalizationCleanConfirmed: p.cannibalizationStatus !== 'merged' && p.cannibalizationStatus !== 'removed',
       publishingPhase: p.publishingPhase,
       marketingAngle: String((p.frontmatter as Record<string, unknown>).marketingAngle ?? ''),
+      wordCountTarget: wordCountTarget(p.pageType),
+      mediaNeeds: mediaNeeds(p.pageType),
+      schemaType: schemaType(p.pageType),
+      eeatNote: eeatNote(isYmyl),
+      conversionGoal: conversionGoal(p.pageType),
       briefFilepath: `src/content/briefs/${p.slug}.md`,
     };
     return brief;

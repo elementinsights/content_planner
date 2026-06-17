@@ -61,6 +61,8 @@ export type ReviewStatus = 'pending' | 'approved' | 'changes-requested' | 'rejec
 export interface PlanInput {
   idea: string;
   seedKeyword?: string;
+  /** User-supplied seed keywords merged into discovery — guarantees coverage of areas you care about. */
+  extraSeedKeywords?: string[];
   broadTopic?: string;
   nicheDescription?: string;
   exampleCompetitor?: string;
@@ -407,6 +409,11 @@ export interface Brief {
   cannibalizationCleanConfirmed: boolean;
   publishingPhase: number;
   marketingAngle: string;
+  wordCountTarget: string;
+  mediaNeeds: string[];
+  schemaType: string;
+  eeatNote: string;
+  conversionGoal: string;
   briefFilepath: string;
 }
 

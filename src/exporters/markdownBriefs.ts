@@ -40,6 +40,17 @@ function briefMarkdown(b: Brief, p: PlannedPage | undefined): string {
   lines.push(`## Suggested sections`);
   for (const s of b.suggestedSections) lines.push(`- ${s}`);
   lines.push('');
+  lines.push(`## Depth, media & schema`);
+  lines.push(`- **Target length:** ${b.wordCountTarget}`);
+  lines.push(`- **Media to include:** ${b.mediaNeeds.join('; ')}`);
+  lines.push(`- **Schema markup:** ${b.schemaType}`);
+  lines.push('');
+  lines.push(`## Trust (E-E-A-T)`);
+  lines.push(b.eeatNote);
+  lines.push('');
+  lines.push(`## Conversion goal`);
+  lines.push(b.conversionGoal);
+  lines.push('');
   lines.push(`## Internal links to include`);
   if (b.internalLinksToInclude.length) for (const l of b.internalLinksToInclude) lines.push(`- [${l.anchor}](${l.target})`);
   else lines.push('- (none yet — add as the cluster grows)');

@@ -16,6 +16,8 @@ import type { PlanInput, PlanResult } from '../core/types.ts';
 
 import { ingestKeywords } from '../ingestion/keywords.ts';
 import { filterRelevantKeywords } from '../intake/llmRelevance.ts';
+import { completenessSeeds } from '../intake/completenessSeeds.ts';
+import { uniq } from '../core/text.ts';
 import { ingestSerp } from '../ingestion/serp.ts';
 import { analyzeCompetitors } from '../ingestion/competitors.ts';
 import { clusterKeywords } from '../clustering/cluster.ts';
@@ -64,6 +66,14 @@ export async function runPlan(opts: RunOptions): Promise<RunResult> {
   log.step('Phase 1 — Intake / discovery');
   const intake = await providers.intake.interpret(input);
   log.info('intake complete', { niche: intake.interpretedNiche, seedTopics: intake.seedTopics.length, categories: intake.initialCategories.length });
+
+  log.step('Phase 1b — LLM completeness audit (gap-finding seed expansion)');
+  const gapSeeds = await completenessSeeds(intake, cfg, cost);
+  if (gapSeeds.length) {
+    intake.seedTopics = uniq([...intake.seedTopics, ...gapSeeds]);
+    intake.seedKeywords = uniq([...intake.seedKeywords, ...gapSeeds]);
+    log.info('seed set expanded by completeness audit', { seedKeywords: intake.seedKeywords.length, seedTopics: intake.seedTopics.length });
+  }
 
   log.step('Phase 5 — Keyword ingestion + expansion');
   let records = await ingestKeywords(intake, providers, geo);

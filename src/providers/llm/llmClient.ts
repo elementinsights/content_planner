@@ -4,11 +4,22 @@
  */
 import type { CostController } from '../../core/cost.ts';
 
-function stripFences(s: string): string {
-  return s
-    .replace(/^```(?:json)?/i, '')
-    .replace(/```$/i, '')
-    .trim();
+/**
+ * Parse JSON from an LLM response, tolerating code fences AND surrounding prose
+ * (e.g. "Looking at these keywords… {json}"). Prose-wrapped JSON is the #1 cause of
+ * parse failures — and a failed parse forces a weaker fallback path — so we recover
+ * the first {...} / [...] block instead of giving up.
+ */
+function parseLlmJson(s: string): unknown {
+  const cleaned = s.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.search(/[{[]/);
+    const end = Math.max(cleaned.lastIndexOf('}'), cleaned.lastIndexOf(']'));
+    if (start >= 0 && end > start) return JSON.parse(cleaned.slice(start, end + 1));
+    throw new SyntaxError('LLM response contained no parseable JSON');
+  }
 }
 
 export async function callLlmJson(opts: {
@@ -37,7 +48,7 @@ export async function callLlmJson(opts: {
       messages: [{ role: 'user', content: user }],
     });
     const text = (res.content ?? []).map((b: any) => b.text ?? '').join('');
-    return JSON.parse(stripFences(text));
+    return parseLlmJson(text);
   }
   // openai
   let OpenAI: any;
@@ -57,5 +68,5 @@ export async function callLlmJson(opts: {
     ],
   });
   const text = res.choices?.[0]?.message?.content ?? '{}';
-  return JSON.parse(stripFences(text));
+  return parseLlmJson(text);
 }

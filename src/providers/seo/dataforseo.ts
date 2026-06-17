@@ -149,6 +149,51 @@ export class DataForSeoProvider implements SEODataProvider {
     return ideas;
   }
 
+  /** Autocomplete-style long-tail via DataForSEO Labs keyword_suggestions (full-text;
+   *  surfaces the question long-tail keyword_ideas misses, e.g. "can goats eat carrots"). */
+  async getKeywordSuggestions(seed: string, opts: GeoLang & { limit?: number }): Promise<KeywordIdea[]> {
+    const ideas: KeywordIdea[] = [];
+    try {
+      const res = await httpJson<any>(`${BASE}/v3/dataforseo_labs/google/keyword_suggestions/live`, {
+        method: 'POST',
+        headers: this.headers(),
+        body: [
+          {
+            keyword: seed,
+            location_code: locationCode(opts.geo),
+            language_code: languageCode(opts.language),
+            limit: opts.limit ?? 300,
+            order_by: ['keyword_info.search_volume,desc'],
+          },
+        ],
+        estUsd: 0.05,
+        label: 'dfs.keyword_suggestions',
+        cost: this.cost,
+      });
+      const items = res?.tasks?.[0]?.result?.[0]?.items ?? [];
+      for (const it of items) {
+        const kw = String(it.keyword ?? '');
+        if (!kw) continue;
+        const intent = mapIntent(it.search_intent_info?.main_intent);
+        if (intent) this.intents.set(kw, intent);
+        ideas.push({
+          keyword: kw,
+          metrics: {
+            ...emptyMetrics(),
+            searchVolume: numOrNull(it.keyword_info?.search_volume),
+            cpc: numOrNull(it.keyword_info?.cpc),
+            keywordDifficulty: numOrNull(it.keyword_properties?.keyword_difficulty),
+            source: 'dataforseo',
+            liveData: true,
+          },
+        });
+      }
+    } catch (err) {
+      log.warn('dfs.getKeywordSuggestions failed', { seed, error: err instanceof Error ? err.message : String(err) });
+    }
+    return ideas;
+  }
+
   async getReferringDomains(targetUrl: string): Promise<number | null> {
     try {
       const res = await httpJson<any>(`${BASE}/v3/backlinks/summary/live`, {

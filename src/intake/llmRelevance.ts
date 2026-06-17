@@ -46,13 +46,12 @@ export async function filterRelevantKeywords(
   }
 
   const system =
-    `You are an SEO topical-relevance classifier for a single website.\n` +
-    `The website's topic is:\n"${intake.interpretedNiche}"\n\n` +
-    `For EACH keyword, decide whether it belongs on THIS website — i.e. it is about the site's core subject and its target audience would search it on the way to that subject.\n` +
-    `REJECT keywords whose primary subject is something else, even if they share a word: other animals or species, unrelated hobbies, generic cooking/recipes, products unrelated to the topic, video games, trivia, etc.\n` +
-    `KEEP on-topic terms even when they don't contain the obvious subject word (breed names, jargon, tools, conditions that belong to the topic).\n` +
-    `Decision test: is the PRIMARY subject/entity of the phrase this site's topic? If the head noun is a different entity (another animal, a recipe, a game, a place), REJECT — word overlap alone is not enough.\n` +
-    `Return ONLY a JSON object of the form {"keep":["<keyword>", ...]} listing exactly the input keywords (verbatim) that belong. Do not invent, rephrase, or add keywords.`;
+    `You are an SEO keyword qualifier for a single website. The website's topic is:\n"${intake.interpretedNiche}"\n\n` +
+    `Keep a keyword ONLY IF it passes BOTH tests:\n` +
+    `(1) ON-TOPIC — it is about the site's core subject and its audience would search it. REJECT keywords whose primary subject is something else even if they share a word (other animals/species, unrelated hobbies, generic cooking/recipes, unrelated products, video games, trivia). Comparisons that help the audience decide ARE on-topic (e.g. "X vs Y", "can X and Y live together"); but REJECT terms whose ONLY subject is the OTHER entity (its breeds, gestation, anatomy). Keep on-topic jargon/breed/tool/condition terms even without the obvious subject word.\n` +
+    `Be STRICT on ADJACENT subjects: if a phrase is fundamentally about a DIFFERENT animal/entity (its OWN care, breeds, suitability, feeding, or anatomy) and the site's subject is not central to it, REJECT — even if the site's audience might also keep or be curious about that other thing. Only keep cross-subject phrases that directly involve or compare to the site's subject.\n` +
+    `(2) VIABLE ARTICLE — it is specific enough to anchor its OWN article. REJECT bare head terms with no angle (the subject word alone, "a <subject>", "<subject> info", "<subject> animal"), misspellings/typos, vague sentence fragments ("feed or breed", "what are <subject> for"), and ambiguous one-word terms.\n` +
+    `Return ONLY a JSON object {"keep":["<keyword>", ...]} listing exactly the input keywords (verbatim) that pass BOTH tests. Do not invent, rephrase, or add keywords.`;
 
   const keepNorms = new Set<string>();
   let batches = 0;
@@ -61,20 +60,25 @@ export async function filterRelevantKeywords(
   for (let i = 0; i < records.length; i += BATCH) {
     const chunk = records.slice(i, i + BATCH);
     const user = `Keywords:\n${chunk.map((r) => `- ${r.keyword}`).join('\n')}`;
-    try {
-      const raw = (await callLlmJson({ ...creds, system, user, cost })) as { keep?: unknown };
-      // A wrong-shape response (missing "keep" array) is a failure, NOT "drop the
-      // whole batch": throw so the catch applies the lexical fallback instead.
-      if (!Array.isArray(raw.keep)) throw new Error('LLM relevance response missing a "keep" array');
-      for (const k of raw.keep) if (typeof k === 'string') keepNorms.add(normalizeForMatch(k));
-      batches++;
-    } catch (err) {
-      // Fail open to the lexical filter for just this batch — never lose keywords to an API blip.
-      llmFailures++;
-      for (const r of chunk) if (lexical.isRelevant(r.keyword)) keepNorms.add(normalizeForMatch(r.keyword));
-      log.warn('relevance batch failed; lexical fallback for this batch', {
-        error: err instanceof Error ? err.message : String(err),
-      });
+    // Try the LLM up to twice (transient prose-wrapped JSON / API blips); only after
+    // both fail do we drop to the weaker lexical filter for this batch.
+    let done = false;
+    for (let attempt = 0; attempt < 2 && !done; attempt++) {
+      try {
+        const raw = (await callLlmJson({ ...creds, system, user, cost })) as { keep?: unknown };
+        if (!Array.isArray(raw.keep)) throw new Error('LLM relevance response missing a "keep" array');
+        for (const k of raw.keep) if (typeof k === 'string') keepNorms.add(normalizeForMatch(k));
+        batches++;
+        done = true;
+      } catch (err) {
+        if (attempt === 1) {
+          llmFailures++;
+          for (const r of chunk) if (lexical.isRelevant(r.keyword)) keepNorms.add(normalizeForMatch(r.keyword));
+          log.warn('relevance batch failed after retry; lexical fallback for this batch', {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
     }
   }
 

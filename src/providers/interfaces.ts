@@ -41,6 +41,8 @@ export interface SEODataProvider {
   getCompetitorTopPages?(domain: string, opts: GeoLang & { limit?: number }): Promise<CompetitorPage[]>;
   /** Competitor organic keywords (for gap analysis). */
   getCompetitorOrganicKeywords?(domain: string, opts: GeoLang & { limit?: number }): Promise<KeywordIdea[]>;
+  /** Autocomplete-style long-tail suggestions containing a seed phrase (question long-tail). */
+  getKeywordSuggestions?(seed: string, opts: GeoLang & { limit?: number }): Promise<KeywordIdea[]>;
   /** Referring domains for a competing URL (backlink dependency input). */
   getReferringDomains?(url: string): Promise<number | null>;
 }

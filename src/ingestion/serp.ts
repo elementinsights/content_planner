@@ -37,8 +37,15 @@ export async function ingestSerp(
   const ordered = records.slice().sort((a, b) => (b.metrics.searchVolume ?? 0) - (a.metrics.searchVolume ?? 0));
   const shortlist = ordered.slice(0, limit);
   log.step(`Fetching SERPs for ${shortlist.length} keywords (by volume; cached where possible)`);
+  // Concurrency for the network-bound fetches. SERP results are independent, so
+  // fetching in parallel returns IDENTICAL data — only faster. Tunable via env.
+  const concurrency = Math.max(1, Number(process.env.SEO_SERP_CONCURRENCY ?? 8));
   let cached = 0;
   let fetched = 0;
+  let failed = 0;
+
+  // Pass 1: serve cache hits first (no network).
+  const toFetch: KeywordRecord[] = [];
   for (const rec of shortlist) {
     const key = `${geo.geo}:${rec.normalized}`;
     const hit = opts.cache?.getSerpCache(key);
@@ -53,16 +60,34 @@ export async function ingestSerp(
         /* fall through to refetch */
       }
     }
-    try {
-      const data = await serp.getSerp(rec.keyword, geo);
-      rec.serp = data;
-      serpByKeyword.set(rec.keyword, data);
-      opts.cache?.saveSerpCache(key, JSON.stringify(data));
-      fetched++;
-    } catch (err) {
-      log.warn('serp fetch failed', { keyword: rec.keyword, error: err instanceof Error ? err.message : String(err) });
-    }
+    toFetch.push(rec);
   }
-  log.info('SERP ingestion complete', { fetched, cached, shortlist: shortlist.length });
+
+  // Pass 2: fetch the misses in parallel chunks, with one retry on transient errors
+  // so a hiccup never silently drops a keyword from the clustering.
+  const fetchOne = async (rec: KeywordRecord): Promise<void> => {
+    const key = `${geo.geo}:${rec.normalized}`;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const data = await serp.getSerp(rec.keyword, geo);
+        rec.serp = data;
+        serpByKeyword.set(rec.keyword, data);
+        opts.cache?.saveSerpCache(key, JSON.stringify(data));
+        fetched++;
+        return;
+      } catch (err) {
+        if (attempt === 1) {
+          failed++;
+          log.warn('serp fetch failed (after retry)', { keyword: rec.keyword, error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+    }
+  };
+  for (let i = 0; i < toFetch.length; i += concurrency) {
+    await Promise.all(toFetch.slice(i, i + concurrency).map(fetchOne));
+    if (i > 0 && i % (concurrency * 50) === 0) log.info('SERP fetch progress', { done: i, remaining: toFetch.length - i });
+  }
+
+  log.info('SERP ingestion complete', { fetched, cached, failed, shortlist: shortlist.length, concurrency });
   return { serpByKeyword, liveData: true };
 }

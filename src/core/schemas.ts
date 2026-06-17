@@ -17,6 +17,7 @@ export const SiteTypeSchema = z.enum([
 export const PlanInputSchema = z.object({
   idea: z.string().min(3, 'idea is required (a sentence describing the site)'),
   seedKeyword: z.string().optional(),
+  extraSeedKeywords: z.array(z.string()).optional(),
   broadTopic: z.string().optional(),
   nicheDescription: z.string().optional(),
   exampleCompetitor: z.string().optional(),
