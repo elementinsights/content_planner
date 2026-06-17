@@ -26,6 +26,23 @@ export function normalizeKeyword(input: string): string {
   return input.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Aggressive normalization for matching LLM-returned strings back to keywords:
+ * strips accents, drops apostrophes/quotes (so "goat's" == "goats"), and folds all
+ * other punctuation to single spaces. Use when an LLM may echo a keyword with
+ * minor cosmetic drift (case, accents, hyphens, "&").
+ */
+export function normalizeForMatch(input: string): string {
+  return input
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/['’"]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /** Tokenize into lowercase words (alphanumeric runs). */
 export function tokenize(input: string): string[] {
   return normalizeKeyword(input)

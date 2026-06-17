@@ -16,12 +16,11 @@ import type { AppConfig } from '../config/env.ts';
 import type { CostController } from '../core/cost.ts';
 import { callLlmJson } from '../providers/llm/llmClient.ts';
 import { llmCreds } from '../intake/llmRelevance.ts';
-import { titleCase } from '../core/text.ts';
+import { titleCase, normalizeForMatch } from '../core/text.ts';
 import { log } from '../core/logger.ts';
 
 const BATCH = 15;
 const MAX_KW_PER_CLUSTER = 25; // cap prompt size; highest-volume members are most informative
-const norm = (s: string): string => s.toLowerCase().replace(/\s+/g, ' ').trim();
 
 export async function refineClustersWithLLM(
   clustering: ClusteringResult,
@@ -48,7 +47,7 @@ export async function refineClustersWithLLM(
     `- "pillar": the SINGLE best umbrella/main-page keyword — the broadest, highest-value head term the others support. It need NOT be the highest volume if a better umbrella exists. It MUST be copied verbatim from that cluster's keyword list.\n` +
     `Return ONLY JSON: {"clusters":[{"id":<id>,"name":"...","pillar":"<verbatim keyword>"}]} with one object per id provided.`;
 
-  let batches = 0, failures = 0, renamed = 0, repillared = 0;
+  let batches = 0, failures = 0, renamed = 0, repillared = 0, pillarRejected = 0;
 
   for (let i = 0; i < targets.length; i += BATCH) {
     const chunk = targets.slice(i, i + BATCH);
@@ -74,13 +73,24 @@ export async function refineClustersWithLLM(
           for (const k of cl.memberKeywords) clustering.clusterNameByKeyword.set(k, nm);
           renamed++;
         }
-        // Pillar must be a real member of THIS cluster (match verbatim, tolerant of case/space).
+        // Pillar must be a real member of THIS cluster. Match tolerantly (accents/
+        // punctuation/case), then fall back to a contains-match for minor drift; if
+        // still no member matches, keep the mechanical hub and record the rejection.
         if (typeof dec.pillar === 'string' && dec.pillar.trim()) {
-          const match = cl.memberKeywords.find((k) => norm(k) === norm(dec.pillar!));
+          const target = normalizeForMatch(dec.pillar);
+          let match = cl.memberKeywords.find((k) => normalizeForMatch(k) === target);
+          if (!match) {
+            match = cl.memberKeywords.find((k) => {
+              const nk = normalizeForMatch(k);
+              return nk.includes(target) || target.includes(nk);
+            });
+          }
           if (match) {
             cl.hubKeyword = match;
             cl.pillarKeyword = match;
             repillared++;
+          } else {
+            pillarRejected++;
           }
         }
       }
@@ -93,5 +103,5 @@ export async function refineClustersWithLLM(
     }
   }
 
-  log.info('cluster refinement (LLM)', { clusters: targets.length, renamed, repillared, batches, failures });
+  log.info('cluster refinement (LLM)', { clusters: targets.length, renamed, repillared, pillarRejected, batches, failures });
 }

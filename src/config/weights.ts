@@ -20,7 +20,7 @@ export const DEFAULT_WEIGHTS: ScoringWeights = {
   serpWeakness: { lowAuthorityPresence: 0.28, lowReferringDomains: 0.22, staleResults: 0.12, ugcPresence: 0.18, mismatchedIntent: 0.1, weakPageTypeFit: 0.1 },
   backlinkDependency: { kd: 0.4, medianReferringDomains: 0.3, strongDomainPrevalence: 0.2, linkIntensity: 0.1 },
   noBacklinkOpportunity: { inverseBacklinkDependency: 0.34, serpWeakness: 0.26, topicalFit: 0.15, businessValue: 0.15, intentClarity: 0.1 },
-  priority: { noBacklinkOpportunity: 0.26, demand: 0.18, trafficPotential: 0.16, businessValue: 0.16, clusterImportance: 0.1, internalLinkValue: 0.08, promotionValue: 0.06 },
+  priority: { noBacklinkOpportunity: 0.26, demand: 0.18, trafficPotential: 0.16, businessValue: 0.16, clusterImportance: 0.1, internalLinkValue: 0.12, promotionValue: 0.06 },
   contentMarketing: { promotionPotential: 0.4, linkability: 0.3, businessValue: 0.2, audienceReach: 0.1 },
   pageCount: { universe: 0.3, clusterDepth: 0.25, serpOpportunity: 0.15, businessValue: 0.15, capacity: 0.15 },
 };
