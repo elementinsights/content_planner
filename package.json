@@ -1,0 +1,32 @@
+{
+  "name": "seo-planner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reusable internal organic-traffic SEO planning system for brand-new Astro sites. Generates a cannibalization-clean, Astro-ready 200+ page keyword/content plan and exports it to Google Sheets, CSV, JSON, and Astro manifests.",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "seo-planner": "src/cli.ts"
+  },
+  "scripts": {
+    "cli": "tsx src/cli.ts",
+    "plan": "tsx src/cli.ts plan",
+    "intake": "tsx src/cli.ts intake",
+    "sheets": "tsx src/cli.ts sheets",
+    "demo": "tsx src/cli.ts plan --config examples/ai-tools-for-marketers.json --out output",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.2",
+    "google-auth-library": "^9.14.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

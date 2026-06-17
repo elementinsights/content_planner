@@ -1,0 +1,17 @@
+node_modules/
+output/
+*.log
+.env
+.env.local
+
+# Secrets / credentials — never commit
+service_account.json
+*-service-account.json
+*.pem
+*.key
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+.DS_Store
+dist/

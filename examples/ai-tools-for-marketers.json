@@ -1,0 +1,15 @@
+{
+  "idea": "I want to build a website about AI tools for marketers",
+  "broadTopic": "AI tools for marketers",
+  "nicheDescription": "Helping marketers discover, evaluate, and use AI tools to do their jobs faster — from content and SEO to ads, email, and analytics.",
+  "audience": "In-house marketers, marketing managers, and small-agency owners who are AI-curious but not technical",
+  "monetization": "Affiliate commissions on AI tools + email list for a future paid newsletter",
+  "siteType": "affiliate",
+  "geo": "us",
+  "language": "en",
+  "minArticles": 200,
+  "competitors": ["zapier.com", "hubspot.com"],
+  "excludedTopics": ["enterprise RPA", "AI image NSFW"],
+  "brandPositioning": "Practical, vendor-neutral reviews and how-tos — no hype, real testing",
+  "contentStyle": "Clear, skimmable, example-driven, no fluff"
+}

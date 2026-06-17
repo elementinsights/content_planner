@@ -1,0 +1,12 @@
+{
+  "idea": "I want a no-backlink site about personal finance for beginners",
+  "broadTopic": "personal finance for beginners",
+  "audience": "Young adults and beginners getting their finances in order for the first time",
+  "monetization": "Display ads + affiliate (budgeting apps, high-yield savings, brokerages)",
+  "siteType": "ads",
+  "geo": "us",
+  "language": "en",
+  "minArticles": 200,
+  "exampleCompetitor": "dollarsprout.com",
+  "excludedTopics": ["crypto day trading", "get rich quick"]
+}
