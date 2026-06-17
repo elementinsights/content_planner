@@ -15,9 +15,11 @@ import { log } from '../core/logger.ts';
 import type { PlanInput, PlanResult } from '../core/types.ts';
 
 import { ingestKeywords } from '../ingestion/keywords.ts';
+import { filterRelevantKeywords } from '../intake/llmRelevance.ts';
 import { ingestSerp } from '../ingestion/serp.ts';
 import { analyzeCompetitors } from '../ingestion/competitors.ts';
 import { clusterKeywords } from '../clustering/cluster.ts';
+import { refineClustersWithLLM } from '../clustering/llmClusterRefine.ts';
 import { buildTaxonomy } from '../taxonomy/taxonomy.ts';
 import { recommendArticleCount } from '../planning/pageCount.ts';
 import { buildContentMap, selectTopPages, tallyPhases } from '../planning/contentMap.ts';
@@ -64,7 +66,10 @@ export async function runPlan(opts: RunOptions): Promise<RunResult> {
   log.info('intake complete', { niche: intake.interpretedNiche, seedTopics: intake.seedTopics.length, categories: intake.initialCategories.length });
 
   log.step('Phase 5 — Keyword ingestion + expansion');
-  const records = await ingestKeywords(intake, providers, geo);
+  let records = await ingestKeywords(intake, providers, geo);
+
+  log.step('Phase 5b — LLM topical-relevance gate (drops off-topic keywords before the expensive steps)');
+  records = await filterRelevantKeywords(records, intake, cfg, cost);
 
   log.step('Phase 6 — SERP ingestion (live only; powers SERP-overlap clustering)');
   const serpBudget = Number(process.env.SEO_SERP_BUDGET ?? 300);
@@ -76,6 +81,9 @@ export async function runPlan(opts: RunOptions): Promise<RunResult> {
   log.step('Phase 10 — Clustering');
   const clustering = clusterKeywords(records, intake);
   log.info('clustering complete', { clusters: clustering.clusters.length });
+
+  log.step('Phase 10b — LLM cluster refinement (names + best-pillar selection)');
+  await refineClustersWithLLM(clustering, records, intake, cfg, cost);
 
   log.step('Phase 8 — Category / taxonomy');
   const taxonomy = buildTaxonomy(intake, clustering.clusters);
