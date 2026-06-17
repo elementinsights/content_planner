@@ -2,7 +2,12 @@
  * Low-level LLM JSON client. Lazy-imports the chosen SDK so neither is a hard
  * dependency. Returns parsed JSON from the model. Charges the cost controller.
  */
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import type { CostController } from '../../core/cost.ts';
+import { log } from '../../core/logger.ts';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Parse JSON from an LLM response, tolerating code fences AND surrounding prose
@@ -22,6 +27,23 @@ function parseLlmJson(s: string): unknown {
   }
 }
 
+/**
+ * Route a call through headless Claude Code (`claude -p`), which bills to the
+ * user's Claude SUBSCRIPTION instead of pay-as-you-go API credits. ANTHROPIC_API_KEY
+ * is removed from the child env so Claude Code uses subscription (OAuth) auth.
+ * Throws on any failure so the caller falls back to the API.
+ */
+async function callViaClaudeCode(model: string, system: string, user: string): Promise<unknown> {
+  const env = { ...process.env };
+  delete env.ANTHROPIC_API_KEY;
+  const { stdout } = await execFileAsync(
+    'claude',
+    ['-p', `${system}\n\n${user}`, '--model', model, '--max-turns', '1'],
+    { env, timeout: 180_000, maxBuffer: 16 * 1024 * 1024 },
+  );
+  return parseLlmJson(stdout);
+}
+
 export async function callLlmJson(opts: {
   provider: 'anthropic' | 'openai';
   apiKey: string;
@@ -32,6 +54,17 @@ export async function callLlmJson(opts: {
 }): Promise<unknown> {
   const { provider, apiKey, model, system, user, cost } = opts;
   cost.chargeLlm(0.05, `llm.${provider}`);
+  // Prefer the Claude subscription (headless Claude Code) when enabled; the API key
+  // is the automatic fallback if the CLI is missing, errors, or returns no JSON.
+  if (provider === 'anthropic' && process.env.LLM_VIA_CLAUDE_CODE === 'true') {
+    try {
+      return await callViaClaudeCode(model, system, user);
+    } catch (err) {
+      log.warn('claude-code (subscription) call failed — falling back to API', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
   if (provider === 'anthropic') {
     let Anthropic: any;
     try {
